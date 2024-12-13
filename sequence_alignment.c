@@ -16,12 +16,26 @@ struct result{
     char seq2[1000];
     char seq3[1000];
 };
+struct treenode{
+    int id;
+    int son_id[2];
+};
+struct node_dist{
+    int id1;
+    int id2;
+    int dist;
+};
+struct max_dist{
+    int id1;
+    int id2;
+    int dist;
+};
 int length(char*a);
 void copystr(char*a,char*b);
 int alignDNA(char*seq1,char*seq2,struct result*result);
 int alignProtein(char*seq1,char*seq2,struct score_matrix*protmatrix[400],struct result*result);
 int main(int argc, char **argv){
-    
+    char seq[5][100]={"PEEKSAVTALWGKVNVDEYGG","GEEKAAVLALWDKVNEEEYGG","PADKTNVKAAWGKVGAHAGEYGA","AADKTNVKAAWSKVGGHAGEYGA","AATNVKTAWSSKVGGHAPAA"};
     struct score_matrix*protmatrix[400];
     FILE*fp=fopen("/Users/sunkai/Desktop/bio304/BLOSUM62.txt","r");
     FILE*seq1f=fopen("/Users/sunkai/Desktop/bio304/seq1.fasta","r");
@@ -32,23 +46,79 @@ int main(int argc, char **argv){
     }
     fclose(fp);
     struct result result;
-    char seq1[]="MVHLTPEEKSAVTALWGKVNVDEVGGEALGRLLVVYPWTQRFFESFGDLSTPDAVMGNPKVKAHGKKVLGAFSDGLAHLDNLKGTFATLSELHCDKLHVDPENFRLLGNVLVCVLAHHFGKEFTPPVQAAYQKVVAGVANALAHKYH";
-    char seq2[]="MGLSDGEWQLVLNVWGKVEADIPGHGQEVLIRLFKGHPETLEKFDKFKHLKSEDEMKASEDLKKHGATVLTALGGILKKKGHHEAEIKPLAQSHATKHKIPVKYLEFISECIIQVLQSKHPGDFGADAQGAMNKALELFRKDMASNYKELGFQG";
-    int score=alignProtein(seq1,seq2,protmatrix,&result);
-    printf("The score is %d\n",score);
-    
-    for(int j=length(result.seq1)-1;j>-1;j--){
-        printf("%c",result.seq1[j]);
+    struct treenode*tree=(struct treenode*)malloc(sizeof(struct treenode)*9);
+    for(int i=0;i<9;i++){
+        tree[i].id=i;
+        tree[i].son_id[0]=-1;
+        tree[i].son_id[1]=-1;
     }
-    printf("\n");
-    for(int j=length(result.seq2)-1;j>-1;j--){
-        printf("%c",result.seq2[j]);
+    struct node_dist*dist=(struct node_dist*)malloc(sizeof(struct node_dist)*81);
+    for(int i=0;i<9;i++){
+        for(int j=i+1;j<9;j++){
+            dist[i*9+j].id1=i;
+            dist[i*9+j].id2=j;
+            dist[i*9+j].dist=-999999;
+        }
     }
-    printf("\n");
-    for(int j=length(result.seq3)-1;j>-1;j--){
-        printf("%c",result.seq3[j]);
+    for(int i=0;i<5;i++){
+        for(int j=i+1;j<5;j++){
+            if(i==j)
+                continue;
+            int score=alignProtein(seq[i],seq[j],protmatrix,&result);
+            printf("%d\n",score);
+            dist[i*9+j].dist=score;
+            dist[j*9+i].dist=score;
+        }
     }
-    printf("\n");
+    int coldata[5]={0,1,2,3,4};
+    int newcoldata[5]={0,1,2,3,4};
+    for(int i=5;i<9;i++){
+        for(int j=0;j<5;j++){
+            coldata[j]=newcoldata[j];
+        }
+        struct max_dist maxdist;
+        maxdist.dist=-999999;
+        int score[10-i][10-i];
+        for(int j=0;j<10-i;j++)
+            for(int k=j+1;k<10-i;k++)
+                for(int l=0;l<81;l++)
+                    if(coldata[j]==dist[l].id1&&coldata[k]==dist[l].id2){
+                        score[j][k]=dist[l].dist;
+                        score[k][j]=dist[l].dist;
+                    }
+        for(int j=0;j<10-i;j++){
+            for(int k=j+1;k<10-i;k++){
+                if(score[j][k]>maxdist.dist){
+                    maxdist.id1=j;
+                    maxdist.id2=k;
+                    maxdist.dist=score[j][k];
+                }
+            }
+        }
+        tree[i].son_id[0]=coldata[maxdist.id1];
+        tree[i].son_id[1]=coldata[maxdist.id2];
+        for(int j=0;j<10-i;j++){
+            if(j!=maxdist.id1&&j!=maxdist.id2){
+                dist[(10-i)*9+j].id1=coldata[maxdist.id1];
+                dist[(10-i)*9+j].id2=coldata[j];
+                dist[(10-i)*9+j].dist=(score[maxdist.id1][j]+score[maxdist.id2][j])/2;
+                dist[j*9+(10-i)].id1=coldata[maxdist.id1];
+                dist[j*9+(10-i)].id2=coldata[j];
+                dist[j*9+(10-i)].dist=(score[maxdist.id1][j]+score[maxdist.id2][j])/2;
+            }
+        }
+        int cnt=0;
+        for(int j=0;j<10-i;j++){
+            if(j!=maxdist.id1&&j!=maxdist.id2){
+                newcoldata[cnt]=coldata[j];
+                cnt++;
+            }
+            newcoldata[cnt]=i;
+        }
+    }
+    for(int i=0;i<9;i++){
+        printf("%d %d %d\n",tree[i].id,tree[i].son_id[0],tree[i].son_id[1]);
+    }
 }
 int length(char*a){
     int cnt=0;
